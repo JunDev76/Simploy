@@ -2,7 +2,7 @@
 
 import {Command} from 'commander';
 import {deploy} from 'commands/deploy';
-import {init} from "commands/init";
+import {init, migrate} from "commands/init";
 
 const program = new Command();
 
@@ -16,6 +16,13 @@ program
   .description('Create setting files.')
   .action((options) => {
     init();
+  });
+
+program
+  .command('migrate')
+  .description('Migrate legacy simploy.json to new environments format.')
+  .action(() => {
+    migrate();
   });
 
 program

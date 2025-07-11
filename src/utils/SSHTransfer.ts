@@ -76,7 +76,7 @@ export default class SSHTransfer {
     try {
       const localDir = path.resolve(process.cwd(), this.localPath);
       const remoteDir = this.remoteDir;
-      const remoteZipPath = `${remoteDir}/deploy-temp.zip`;
+      const remoteZipPath = `${remoteDir.replace(/\/$/, '')}/deploy-temp.zip`;
 
       await this.compressDirectory(localDir);
 

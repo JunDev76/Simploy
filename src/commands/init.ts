@@ -59,3 +59,63 @@ export function init() {
     }
   }
 }
+
+function migrateStringVars(obj: any): any {
+  if (typeof obj === 'string') {
+    return obj.replace(/\$[VP]\$([A-Z0-9_]+)/g, (_, v) => `\${${v}}`)
+  } else if (Array.isArray(obj)) {
+    return obj.map(migrateStringVars);
+  } else if (typeof obj === 'object' && obj !== null) {
+    const out: any = {};
+    for (const k in obj) {
+      out[k] = migrateStringVars(obj[k]);
+    }
+    return out;
+  }
+  return obj;
+}
+
+export function migrate() {
+  const simployPath = path.join(process.cwd(), 'simploy.json');
+  if (!fs.existsSync(simployPath)) {
+    console.error('No simploy.json found to migrate.');
+    return;
+  }
+  const raw = fs.readFileSync(simployPath, 'utf-8');
+  let legacy;
+  try {
+    legacy = JSON.parse(raw);
+  } catch {
+    console.error('simploy.json is not valid JSON.');
+    return;
+  }
+  if (legacy.environments) {
+    console.log('simploy.json is already in the new format.');
+    return;
+  }
+  // 변수 패턴 변환
+  const migratedLegacy = migrateStringVars(legacy);
+  const migrated = {
+    environments: {
+      dev: {
+        servers: [
+          {
+            name: "default",
+            ssh: migratedLegacy.ssh,
+            localPath: migratedLegacy.localPath,
+            remotePath: migratedLegacy.remotePath,
+            transferIgnores: migratedLegacy.transferIgnores,
+            remoteIgnoresWhenClean: migratedLegacy.remoteIgnoresWhenClean,
+            cleanShell: migratedLegacy.cleanShell,
+            shell: migratedLegacy.shell
+          }
+        ],
+        variables: migratedLegacy.variable || {}
+      }
+    }
+  };
+  fs.writeFileSync(simployPath + '.bak', raw, 'utf-8');
+  fs.writeFileSync(simployPath, JSON.stringify(migrated, null, 2), 'utf-8');
+  console.log('simploy.json has been migrated to the new format. Backup saved as simploy.json.bak');
+  console.log('Please edit the "name" field of your server in simploy.json as needed.');
+}
