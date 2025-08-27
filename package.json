@@ -1,6 +1,6 @@
 {
   "name": "simploy",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "SimpleDeploy, A very simple CI/CD tool for personal and small team use. Effortless SSH deployment with environment and secret management.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

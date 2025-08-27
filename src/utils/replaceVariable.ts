@@ -17,7 +17,7 @@ export default function replaceVariable(text: string, variables: { [type: string
     const resolveVariable = (key: string, visited = new Set<string>()): string => {
         if (visited.has(key)) {
             // 순환 참조 방지
-            return flatVars[key] ?? '';
+            return String(flatVars[key] ?? '');
         }
         
         if (key in resolvedVars) {
@@ -29,7 +29,7 @@ export default function replaceVariable(text: string, variables: { [type: string
         }
         
         visited.add(key);
-        const value = flatVars[key];
+        const value = String(flatVars[key]);
         const resolved = value.replace(/\$\{([A-Z0-9_]+)\}/g, (_, refKey) => {
             return resolveVariable(refKey, visited);
         });
