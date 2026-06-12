@@ -1,14 +1,27 @@
 {
   "name": "simploy",
-  "version": "1.0.0",
-  "description": "SimpleDeploy, A very simple CI/CD tool for personal and small team use. Effortless SSH deployment with environment and secret management.",
+  "version": "2.0.0",
+  "description": "A simple CI/CD deployment tool for personal and small team use. Effortless SSH deployment with environment and secret management.",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
     "simploy": "./dist/index.js"
   },
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
-    "build": "tsc && tsc-alias"
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint src/",
+    "format": "prettier --write src/",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build && npm run test"
   },
   "keywords": [
     "deploy",
@@ -21,32 +34,35 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/JunDev76/SimpleDeploy.git"
+    "url": "https://github.com/JunDev76/Simploy.git"
   },
   "bugs": {
-    "url": "https://github.com/JunDev76/SimpleDeploy/issues"
+    "url": "https://github.com/JunDev76/Simploy/issues"
   },
-  "homepage": "https://github.com/JunDev76/SimpleDeploy#readme",
+  "homepage": "https://github.com/JunDev76/Simploy#readme",
   "author": "JunDev76",
   "license": "ISC",
   "engines": {
-    "node": ">=16"
-  },
-  "devDependencies": {
-    "@types/archiver": "^6.0.3",
-    "@types/cli-progress": "^3.11.6",
-    "@types/node": "^22.10.0",
-    "@types/ssh2-streams": "^0.1.12",
-    "commander": "^12.1.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.7.2"
+    "node": ">=18"
   },
   "dependencies": {
     "archiver": "^7.0.1",
     "chalk": "^4.1.2",
-    "cli-progress": "^3.12.0",
+    "commander": "^12.1.0",
     "node-ssh": "^13.1.0",
     "ora": "^5.4.1",
-    "tsc-alias": "^1.8.10"
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
+    "@types/archiver": "^6.0.3",
+    "@types/node": "^22.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.16.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.0"
   }
 }

@@ -1,0 +1,138 @@
+# Simploy
+
+> A simple CLI tool for SSH-based deployment. Compress, upload, extract, run commands on remote servers.
+
+## Architecture
+
+```
+src/
+├── index.ts                    # CLI entry point (commander)
+├── types.ts                    # All shared TypeScript interfaces
+├── errors.ts                   # Custom error class hierarchy (SimployError > ConfigError, SSHError, DeployError, VariableError)
+├── constants.ts                # Default config templates, file name constants, schema URL
+├── commands/
+│   ├── init.ts                 # `simploy init` - creates config files with $schema
+│   └── deploy.ts               # `simploy deploy` - deploys to remote servers
+├── core/
+│   ├── config-loader.ts        # Loads + validates simploy.json (zod), loads simploy.secrets.json
+│   ├── variable-resolver.ts    # Recursive ${VAR} substitution with circular reference detection + undefined variable errors
+│   ├── ssh-manager.ts         # `withSSH()` wrapper - connects/disposes SSH with try/finally guarantee
+│   ├── file-transfer.ts       # Compress local dir → upload zip → extract on remote → cleanup temp files
+│   └── remote-shell.ts        # Execute remote shell commands sequentially, stop on first failure
+└── utils/
+    ├── logger.ts               # chalk-based logging helpers
+    └── spinner.ts              # ora spinner wrapper
+```
+
+## CLI Commands
+
+- `simploy init` — Creates `simploy.json` (with `$schema`) and `simploy.secrets.json` in cwd. Prompts before overwriting. Adds `simploy.secrets.json` to `.gitignore`.
+- `simploy deploy` — Deploys project to remote servers.
+  - `-e, --env <env>` — Environment name (default: `dev`)
+  - `-s, --server <name>` — Deploy to a specific server only
+  - `-c, --config-path <path>` — Config file path (default: `simploy.json`)
+  - `-p, --secrets-path <path>` — Secrets config file path (default: `simploy.secrets.json`)
+  - `--dry-run` — Preview deployment plan without executing
+
+## `$schema` — Schema Discovery for AI Agents & IDEs
+
+`simploy init` automatically adds `$schema` to `simploy.json`. The schema URL points to `https://raw.githubusercontent.com/JunDev76/Simploy/main/dist/schema.json`.
+
+AI agents discovering a `simploy.json` file can follow the `$schema` URL to understand:
+- What Simploy is (SSH deployment tool)
+- The full config structure and field meanings
+- Required vs optional fields and validation rules
+
+## Config Schema (simploy.json)
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/JunDev76/Simploy/main/dist/schema.json",
+  "environments": {
+    "<env_name>": {
+      "servers": [
+        {
+          "name": "server-name",
+          "ssh": {
+            "host": "${HOST_VAR}",
+            "port": 22,
+            "username": "${USER_VAR}",
+            "password": "${PASS_VAR}",
+            "privateKeyPath": "~/.ssh/id_rsa",
+            "passphrase": ""
+          },
+          "localPath": ".",
+          "remotePath": "/home/user/app",
+          "exclude": ["node_modules", ".git"],
+          "preserve": [".env"],
+          "preDeploy": ["screen -S app -X quit"],
+          "postDeploy": ["cd /home/user/app", "npm ci", "npm start"]
+        }
+      ],
+      "variables": {
+        "APP_NAME": "myapp"
+      }
+    }
+  }
+}
+```
+
+- `$schema`: Optional. JSON Schema URI for IDE autocomplete and AI agent discovery.
+- `ssh`: Must have either `password` or `privateKeyPath`. `port` defaults to 22.
+- `exclude`: Files/dirs excluded from the zip archive. `node_modules`, `.git`, `simploy.json`, `simploy.secrets.json` are always excluded.
+- `preserve`: Files preserved during remote cleanup. If empty or omitted, `rm -rf remotePath/*` is used instead.
+- `preDeploy`: Commands run before file transfer (e.g., stop services).
+- `postDeploy`: Commands run after file transfer (e.g., install deps, start app).
+- `variables`: Key-value pairs used for `${VAR}` substitution.
+
+## simploy.secrets.json
+
+Flat key-value object for secrets. Merged with `variables` for substitution. Auto-added to `.gitignore` by `simploy init`.
+
+```json
+{
+  "DEV_WEB_HOST": "your.server.com",
+  "DEV_WEB_USER": "ubuntu",
+  "DEV_WEB_PASSWORD": "yourpassword"
+}
+```
+
+## Variable Resolution
+
+- Syntax: `${VAR_NAME}` (uppercase letters, digits, underscore)
+- Recursive: Variables can reference other variables (`"HOST": "${IP}:${PORT}"`)
+- Circular references throw `VariableError`
+- Undefined variables throw `VariableError` (deployment aborts)
+- Resolution order: environment `variables` first, then `simploy.secrets.json` overrides
+
+## Error Hierarchy
+
+```
+SimployError (base)
+├── ConfigError      — config file not found, invalid JSON, schema validation failure
+├── SSHError         — connection failure, remote command failure
+├── DeployError      — file transfer/extraction failure
+└── VariableError    — undefined variable, circular reference
+```
+
+All `SimployError` subclasses produce user-friendly messages. Unexpected errors show stack traces only in `NODE_ENV=development`.
+
+## Deployment Flow
+
+1. Load & validate `simploy.json` (zod schema)
+2. Load `simploy.secrets.json` (optional)
+3. Merge variables
+4. For each server in environment:
+   a. Resolve all `${VAR}` in config values
+   b. If `--dry-run`, print plan and skip
+   c. Connect SSH (`withSSH` guarantees `dispose()`)
+   d. Execute `preDeploy` commands
+   e. Compress local dir → upload zip → clean remote → extract → remove temp zip
+   f. Execute `postDeploy` commands
+5. Print summary. Exit code 1 if any server failed.
+
+## Tech Stack
+
+- Node.js >=18, TypeScript, ESM
+- commander (CLI), node-ssh (SSH), archiver (zip), zod (validation), chalk/ora (output)
+- vitest (testing)
